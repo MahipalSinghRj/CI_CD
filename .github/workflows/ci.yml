@@ -1,23 +1,15 @@
-# CI-CD to generate the APK file for Flutter project
-# Android
-# create folder as follow
-# add folder with <.github> name and under the same folder create another folder <workflows>
-# then create a file <file.yml> and add below code in it.
-# Email function added below
-
-
 name: CI
-
 on:
-  push:
-    branches: [ "master" ]
+  pull_request:
+    branches:
+      - master
 
 jobs:
   flutter_test:
     name: Run flutter test and analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
         with:
           java-version: "12.x"
@@ -25,21 +17,38 @@ jobs:
         with:
           channel: "stable"
       - run: flutter pub get
-      - run: flutter build apk --release
+      - run: flutter analyze
+      - run: flutter test
 
-      - name: Send mail
-        uses: dawidd6/action-send-mail@v3
+  build_ios:
+    name: Build Flutter (iOS)
+    needs: [flutter_test]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
         with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: mshekhawat1995@gmail.com
-          password: 01MAHIPAL@1995
-          subject: Github Actions job result
-          body: Build job of ${{github.repository}} completed successfully!
-          to: mahipal@softserv.in
-          from: github-actions
-          attachments: "build/app/outputs/flutter-apk/app-release.apk"
-          priority: high
+          java-version: "12.x"
+      - uses: subosito/flutter-action@v1
+        with:
+          channel: "stable"
+      - run: flutter pub get
+      - run: flutter clean
+      - run: flutter build ios --release --no-codesign
 
-      - name: Checkout code
-        uses: actions/checkout@v2
+  build_appbundle:
+    name: Build Flutter (Android)
+    needs: [flutter_test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: "12.x"
+      - uses: subosito/flutter-action@v1
+        with:
+          channel: "stable"
+      - run: flutter pub get
+      - run: flutter clean
+      - run: flutter build apk --release
+      - name: Push to Release
